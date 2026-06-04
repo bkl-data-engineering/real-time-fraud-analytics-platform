@@ -1,6 +1,8 @@
 # Real-Time Fraud Analytics Platform
 
-A Databricks-based fraud analytics platform built using a Medallion Architecture.
+A Databricks-based fraud analytics platform built using a Medallion Architecture (Bronze, Silver, Gold) on top of the IBM Synthetic Credit Card Transactions dataset.
+
+The platform demonstrates enterprise data engineering practices including data ingestion, transformation, enrichment, fraud analytics, and business-ready analytical marts using Delta Lake and PySpark.
 
 ## Technology Stack
 
@@ -51,6 +53,14 @@ The dataset contains millions of synthetic credit card transactions, customer de
 
 Dataset author: Eric Altman
 Platform: Kaggle
+
+## Dataset Characteristics
+
+- ~24M+ transaction records
+- 2,000 customers
+- Multiple card products
+- Merchant and geographic attributes
+- Fraud indicators
 
 ## Status
 
