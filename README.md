@@ -61,7 +61,25 @@ Platform: Kaggle
 - Multiple card products
 - Merchant and geographic attributes
 - Fraud indicators
+  
+## Roadmap
 
+### Phase 1 (Completed)
+- Bronze/Silver/Gold Medallion Architecture
+- Customer Risk Analytics
+- Fraud Analytics Marts
+
+### Phase 2 (Planned)
+- Streaming Fraud Detection
+- Databricks Lakeflow Pipelines
+- Data Quality Framework
+- MLflow Integration
+
+### Phase 3 (Planned)
+- FastAPI Analytics Service
+- OpenAI / Claude Explainability Layer
+- Docker Deployment
+- GitHub Actions CI/CD
 ## Status
 
 Phase 1 Complete
