@@ -32,6 +32,18 @@ Gold Layer
 - Fraud by Income Band
 - Merchant Risk Profile
 
+## Data Quality
+
+The platform includes a reusable DQ validation framework that validates Silver tables before analytical consumption.
+
+Implemented checks include:
+- Required field completeness
+- Valid numeric ranges
+- Non-negative financial/profile attributes
+- Referential integrity between transactions, cards, and users
+
+DQ results are persisted to `fraud_platform.gold.dq_summary` for auditability.
+
 ## Data Flow
 
 Raw Files → Bronze → Silver → Gold
