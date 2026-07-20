@@ -247,7 +247,7 @@ class DQValidator:
         users_df = self.read_silver_table("users_expanded")
         cards_df = self.read_silver_table("cards")
 
-        user_keys_df = users_df.select("user_Id").dropDuplicates()
+        user_keys_df = users_df.select("user_id").dropDuplicates()
         card_keys_df = cards_df.select("card_index", "user_id").dropDuplicates()
 
         results = [
