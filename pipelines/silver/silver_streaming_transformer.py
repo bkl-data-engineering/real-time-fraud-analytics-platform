@@ -1,177 +1,301 @@
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import (
     col,
-    current_timestamp,
-    lit,
-    sha2,
+    date_format,
     dayofweek,
-    lpad,
-    to_timestamp,
-    to_date,
-    concat_ws,
-    year,
-    month,
     hour,
+    lower,
+    to_date,
+    to_timestamp,
     trim,
-    when
+    when,
 )
+from pyspark.sql.types import DecimalType
 
-from pyspark.sql.types import (
-    StringType,
-    DecimalType,
-    IntegerType,
-)
 
-import sys
-PROJECT_ROOT = "/Workspace/real-time-analytics-platform"
-#/Workspace/real-time-fraud-analytics-platform/config/streaming_config.py
-if PROJECT_ROOT not in sys.path:
-    sys.path.append(PROJECT_ROOT)
-
-#import importlib
-#import config.streaming_config as streaming_config
-#importlib.reload(streaming_config)
-from config.streaming_config import StreamingConfig
-
-class StreamingSilverTransfer:
+class StreamingSilverTransformer:
     """
-    Transforms streaming bronze transactions data into a cleaned silver table.
+    Transforms Bronze streaming transaction records and writes them
+    to a Silver Delta table.
 
-    Responsibilities:
-    - Read streaming bronze transaction table
-    - cast columns to correct data type
-    - create transaction timestamp/date fields
-    - add fraud-analysis-friendly derived columns
-    - apply lightweight data quality rules
-    - write to silver delta table
+    The transformer:
+    - Reads from the Bronze streaming Delta table
+    - Casts columns to appropriate data types
+    - Parses transaction dates and timestamps
+    - Standardizes string columns
+    - Adds analytical attributes
+    - Applies basic data-quality filters
+    - Writes incrementally to the Silver table
     """
 
-    TRANSACTION_COLUMN_TYPES = {
-        "user": IntegerType(),
-        "card": IntegerType(),
-        "year": IntegerType(),
-        "month": IntegerType(),
-        "day": IntegerType(),
-        "amount": DecimalType(18,2),
-        "merchant_name": StringType(),
-        "merchant_city": StringType(),
-        "merchant_state": StringType(),
-        "merchant_country": StringType(),
-        "zip": StringType(),
-        "mcc": StringType(),
-        "errors": StringType(),
-        "is_fraud": StringType()
-    }
-
-    def __init__(self, spark: SparkSession, config: StreamingConfig):
+    def __init__(
+        self,
+        spark: SparkSession,
+        catalog: str = "fraud_platform",
+        bronze_schema: str = "bronze",
+        silver_schema: str = "silver",
+        source_table: str = "streaming_transactions",
+        target_table: str = "streaming_transactions",
+        checkpoint_path: str = (
+            "/Volumes/fraud_platform/silver/"
+            "micro_batches/checkpoints/streaming_transactions"
+        ),
+    ) -> None:
         self.spark = spark
-        self.config = config
-        
+
+        self.source_table = (
+            f"{catalog}.{bronze_schema}.{source_table}"
+        )
+
+        self.target_table = (
+            f"{catalog}.{silver_schema}.{target_table}"
+        )
+
+        self.checkpoint_path = checkpoint_path
+
     def read_stream(self) -> DataFrame:
-        return self.spark.readStream.table(
-            self.config.bronze_streaming_table
+        """
+        Reads transaction records from the Bronze streaming Delta table.
+        """
+        return (
+            self.spark.readStream
+            .format("delta")
+            .table(self.source_table)
         )
 
     def cast_columns(self, df: DataFrame) -> DataFrame:
-        for column, data_type in self.TRANSACTION_COLUMN_TYPES.items():
-            df = df.withColumn(column, col(column).cast(data_type))
-        return df
+        """
+        Casts Bronze string columns into appropriate Silver data types.
 
-    def clean_string_columns(self, df: DataFrame) -> DataFrame:
-        string_columns = [
+        transaction_ts is stored in Bronze using ISO 8601 UTC format:
+
+            2014-07-07T14:04:00.000Z
+        """
+        return (
+            df
+            .withColumn(
+                "user_id",
+                col("user_id").cast("int"),
+            )
+            .withColumn(
+                "card_index",
+                col("card_index").cast("int"),
+            )
+            .withColumn(
+                "transaction_year",
+                col("transaction_year").cast("int"),
+            )
+            .withColumn(
+                "transaction_month",
+                col("transaction_month").cast("int"),
+            )
+            .withColumn(
+                "transaction_day",
+                col("transaction_day").cast("int"),
+            )
+            .withColumn(
+                "transaction_date",
+                to_date(
+                    col("transaction_date"),
+                    "yyyy-MM-dd",
+                ),
+            )
+            .withColumn(
+                "transaction_timestamp",
+                to_timestamp(
+                    col("transaction_ts"),
+                    "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+                ),
+            )
+            .withColumn(
+                "amount",
+                col("amount").cast(DecimalType(18, 2)),
+            )
+            .withColumn(
+                "mcc",
+                col("mcc").cast("string"),
+            )
+            .withColumn(
+                "zip",
+                col("zip").cast("string"),
+            )
+        )
+
+    def standardize_strings(self, df: DataFrame) -> DataFrame:
+        """
+        Trims and standardizes selected string columns.
+        """
+        return (
+            df
+            .withColumn(
+                "use_chip",
+                trim(col("use_chip")),
+            )
+            .withColumn(
+                "merchant_name",
+                trim(col("merchant_name")),
+            )
+            .withColumn(
+                "merchant_city",
+                trim(col("merchant_city")),
+            )
+            .withColumn(
+                "merchant_state",
+                trim(col("merchant_state")),
+            )
+            .withColumn(
+                "errors",
+                trim(col("errors")),
+            )
+            .withColumn(
+                "is_fraud",
+                lower(trim(col("is_fraud"))),
+            )
+        )
+
+    def add_derived_columns(self, df: DataFrame) -> DataFrame:
+        """
+        Adds columns useful for downstream fraud analytics.
+        """
+        return (
+            df
+            .withColumn(
+                "transaction_hour",
+                hour(col("transaction_timestamp")),
+            )
+            .withColumn(
+                "transaction_day_of_week",
+                date_format(
+                    col("transaction_timestamp"),
+                    "EEEE",
+                ),
+            )
+            .withColumn(
+                "is_weekend",
+                when(
+                    dayofweek(
+                        col("transaction_timestamp")
+                    ).isin(1, 7),
+                    True,
+                ).otherwise(False),
+            )
+            .withColumn(
+                "is_online_transaction",
+                when(
+                    lower(trim(col("use_chip")))
+                    == "online transaction",
+                    True,
+                ).otherwise(False),
+            )
+            .withColumn(
+                "amount_band",
+                when(
+                    col("amount") < 25,
+                    "LOW",
+                )
+                .when(
+                    col("amount") < 100,
+                    "MEDIUM",
+                )
+                .when(
+                    col("amount") < 500,
+                    "HIGH",
+                )
+                .otherwise("VERY_HIGH"),
+            )
+        )
+
+    def apply_data_quality(self, df: DataFrame) -> DataFrame:
+        """
+        Removes records missing required transaction attributes.
+        """
+        return df.filter(
+            col("user_id").isNotNull()
+            & col("card_index").isNotNull()
+            & col("amount").isNotNull()
+            & col("merchant_name").isNotNull()
+            & col("transaction_timestamp").isNotNull()
+        )
+
+    def select_output_columns(self, df: DataFrame) -> DataFrame:
+        """
+        Selects and orders columns written to the Silver table.
+
+        The original transaction_ts is retained for traceability,
+        alongside the parsed transaction_timestamp.
+        """
+        return df.select(
+            "user_id",
+            "card_index",
+            "transaction_year",
+            "transaction_month",
+            "transaction_day",
+            "transaction_date",
+            "transaction_ts",
+            "transaction_timestamp",
+            "transaction_hour",
+            "transaction_day_of_week",
+            "is_weekend",
+            "amount",
+            "amount_band",
+            "use_chip",
+            "is_online_transaction",
             "merchant_name",
             "merchant_city",
             "merchant_state",
             "zip",
             "mcc",
             "errors",
-            "is_fraud"
-        ]
-
-        for column in string_columns:
-            df = df.withColumn(column, trim(col(column)))
-        return df
-    
-    def create_transaction_timestamp(self, df: DataFrame) -> DataFrame:
-        transaction_date_string = concat_ws(
-            "-",
-            col("year").cast("string"),
-            lpad(col("month").cast("string"), 2, "0"),
-            lpad(col("day").cast("string"), 2, "0")
-        )
-    
-        transaction_datetime_string = concat_ws(
-            " ",
-            transaction_date_string,
-            col("time")
-        )
-    
-        return (
-            df.withColumn(
-                "transaction_timestamp",
-                to_timestamp(transaction_datetime_string, "yyyy-MM-dd HH:mm:ss")
-            )
-            .withColumn(
-                "transaction_date",
-                to_date(col("transaction_timestamp"))
-            )
-        )
-
-    def add_derived_columns(self, df: DataFrame) -> DataFrame:
-        return (
-            df.withColumn("transaction_hour", hour(col("transaction_timestamp")))
-            .withColumn("transaction_day_of_week", dayofweek(col("transaction_timestamp")))
-            .withColumn(
-                "is_weekend",
-                when(col("transaction_day_of_week").isin(1, 7), True).otherwise(False)
-            )
-            .withColumn(
-                "amount_band",
-                when(col("amount") < 50, "LOW")
-                .when((col("amount") >= 50) & (col("amount") < 200), "MEDIUM")
-                .when((col("amount") >= 200) & (col("amount") < 1000), "HIGH")
-                .otherwise("VERY_HIGH")
-            )
-            .withColumn(
-                "is_online_transaction",
-                when(col("merchant_city") == "ONLINE", True).otherwise(False)
-            )
-            .withColumn(
-                "_silver_processed_ts",
-                current_timestamp()
-            )
-        )
-
-    def apply_data_quality(self, df: DataFrame) -> DataFrame:
-        return df.filter(
-            col("user").isNotNull()
-            & col("card").isNotNull()
-            & col("amount").isNotNull()
-            & col("merchant_name").isNotNull()
-            & col("transaction_timestamp").isNotNull()
+            "is_fraud",
+            "_run_id",
+            "_source_file",
+            "_ingestion_ts",
+            "_load_type",
+            "_record_hash",
+            "_stream_batch_id",
+            "_stream_file_name",
+            "_rescued_data",
+            "_source_file_name",
+            "_source_file_size",
+            "_source_file_modification_time",
         )
 
     def transform(self, df: DataFrame) -> DataFrame:
-        df = self.cast_columns(df)
-        df = self.clean_string_columns(df)
-        df = self.create_transaction_timestamp(df)
-        df = self.add_derived_columns(df)
-        df = self.apply_data_quality(df)
-        return df
+        """
+        Executes all Silver transformation steps.
+        """
+        transformed_df = self.cast_columns(df)
+        transformed_df = self.standardize_strings(transformed_df)
+        transformed_df = self.add_derived_columns(transformed_df)
+        transformed_df = self.apply_data_quality(transformed_df)
+        transformed_df = self.select_output_columns(transformed_df)
+
+        return transformed_df
 
     def write_stream(self, df: DataFrame):
+        """
+        Writes transformed records to the Silver Delta table.
+
+        availableNow processes all currently available Bronze records
+        and then stops the query.
+        """
         return (
             df.writeStream
             .format("delta")
-            .option("checkpointLocation", self.config.silver_checkpoint_path)
             .outputMode("append")
+            .option(
+                "checkpointLocation",
+                self.checkpoint_path,
+            )
             .trigger(availableNow=True)
-            .toTable(self.config.silver_streaming_table)
+            .toTable(self.target_table)
         )
 
     def run(self):
-        bronze_df = self.read_stream()
-        silver_df = self.transform(bronze_df)
-        return self.write_stream(silver_df)
+        """
+        Runs the complete Bronze-to-Silver streaming transformation.
+        """
+        bronze_stream_df = self.read_stream()
+        silver_stream_df = self.transform(bronze_stream_df)
 
-    
+        return self.write_stream(silver_stream_df)
