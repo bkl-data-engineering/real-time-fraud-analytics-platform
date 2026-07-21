@@ -90,6 +90,50 @@ Key architectural principles include:
 
 The resulting Gold layer provides curated analytical datasets that support fraud analytics, merchant risk assessment, customer profiling, and demographic reporting while remaining extensible for future machine learning and AI-driven investigation use cases.
 
+## Unified Processing Architecture
+One of the primary architectural goals of this platform was to maximize code reuse by enabling both historical batch processing and incremental streaming workloads to share a common transformation pipeline. Regardless of how data enters the platform, it follows the same standardization, enrichment, validation, and analytical processing path.
+```mermaid
+flowchart LR
+
+    subgraph Batch Processing
+        A["Historical CSV Files"]
+    end
+
+    subgraph Streaming Processing
+        B["Micro-Batch Files"]
+    end
+
+    subgraph Bronze Layer
+        C["Bronze Delta Tables"]
+    end
+
+    subgraph Shared Transformation Logic
+        D["Silver Standardization"]
+        E["Business Enrichment"]
+    end
+
+    subgraph Gold Layer
+        F["Gold Analytical Data Marts"]
+    end
+
+    subgraph Consumption
+        G["Fraud Analytics"]
+        H["Reporting"]
+        I["Future APIs & AI"]
+    end
+
+    A --> C
+    B --> C
+
+    C --> D
+    D --> E
+    E --> F
+
+    F --> G
+    F --> H
+    F --> I
+```
+
 ## Architecture Principles
 
 The platform was designed around a set of architectural principles commonly used in modern enterprise data platforms. These principles guided both the technical implementation and the organization of the project.
