@@ -30,20 +30,26 @@ The platform processes over 24 million historical credit card transactions while
 
 > **📌 Note:** A high-level architecture diagram illustrating the end-to-end batch and streaming data flow will be added here.
 
-```
-Raw Data
-    │
-    ▼
- Bronze
-    │
-    ▼
- Silver
-    │
-    ▼
- Gold
-    │
-    ▼
- Analytics & Reporting
+```mermaid
+flowchart LR
+
+    A["IBM Synthetic Credit Card Dataset"] --> B["Bronze Layer<br/>Raw Ingestion"]
+
+    B --> C["Silver Layer<br/>Data Cleansing & Standardization"]
+
+    C --> D["Gold Layer<br/>Business Data Marts"]
+
+    D --> E["Fraud Analytics"]
+    D --> F["Merchant Risk"]
+    D --> G["Customer Profiles"]
+
+    H["Structured Streaming"] --> B
+
+    I["Databricks Jobs"] --> B
+    I --> C
+    I --> D
+
+    J["Data Quality Validation"] --> D
 ```
 
 ## Business Problem
@@ -137,6 +143,59 @@ The following workflow illustrates how data moves through the platform from inge
 
    * Gold tables are optimized for SQL analytics, dashboards, and future API or AI-driven applications.
 
+```mermaid
+flowchart TB
+
+    subgraph Source
+        A["Historical CSV Files"]
+        B["Streaming Micro-Batches"]
+    end
+
+    subgraph Bronze
+        C["Auto Loader"]
+        D["Raw Delta Tables"]
+    end
+
+    subgraph Silver
+        E["Type Casting"]
+        F["Data Standardization"]
+        G["Business Enrichment"]
+    end
+
+    subgraph Gold
+        H["Customer Profile"]
+        I["Merchant Risk"]
+        J["Fraud Analytics"]
+        K["Demographic Analytics"]
+    end
+
+    subgraph Operations
+        L["Data Quality"]
+        M["Validation Notebook"]
+        N["Databricks Job"]
+    end
+
+    A --> D
+    B --> C
+    C --> D
+
+    D --> E
+    E --> F
+    F --> G
+
+    G --> H
+    G --> I
+    G --> J
+    G --> K
+
+    N --> C
+    N --> E
+    N --> G
+    N --> L
+
+    L --> M
+```
+
 
 ## Project Scope
 
@@ -192,18 +251,25 @@ The layered architecture improves maintainability, isolates responsibilities, si
 
 The repository is organized to separate transformation logic, orchestration, documentation, and supporting utilities. This mirrors the organization commonly found in production data engineering projects and promotes maintainability, reusability, and ease of navigation.
 
-```text
-real-time-fraud-analytics-platform/
-│
-├── docs/                    # Architecture diagrams, design documents, and project documentation
-├── jobs/                    # Streaming data generation and orchestration utilities
-├── notebooks/               # Databricks orchestration and validation notebooks
-├── pipelines/               # Modular Bronze, Silver, and Gold transformation pipelines
-├── src/                     # Shared application components and configuration
-├── tests/                   # Future automated testing framework
-├── README.md                # Project documentation
-├── requirements.txt         # Python dependencies
-└── LICENSE                  # Open-source license
+```mermaid
+flowchart TD
+
+    ROOT["real-time-fraud-analytics-platform"]
+
+    ROOT --> Docs["docs/"]
+    ROOT --> Jobs["jobs/"]
+    ROOT --> Notebooks["notebooks/"]
+    ROOT --> Pipelines["pipelines/"]
+    ROOT --> Src["src/"]
+    ROOT --> Tests["tests/"]
+
+    Pipelines --> Bronze["bronze"]
+    Pipelines --> Silver["silver"]
+    Pipelines --> Gold["gold"]
+
+    Src --> Config["config"]
+    Src --> Utils["utils"]
+    Src --> Transformers["transformers"]
 ```
 
 Each directory has a clearly defined responsibility, allowing transformation logic, orchestration workflows, validation notebooks, and documentation to evolve independently while keeping the overall project organized and easy to extend.
@@ -315,24 +381,6 @@ This project demonstrates the design and implementation of a production-oriented
 Collectively, these capabilities demonstrate many of the architectural patterns and operational practices expected when building modern cloud-native analytics platforms.
 
 
-## Engineering Decisions
-
-The platform intentionally adopts several architectural patterns commonly used in enterprise data engineering environments. Each design decision was made to improve maintainability, scalability, operational reliability, and future extensibility.
-
-| Engineering Decision       | Rationale                                                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Medallion Architecture** | Separates raw ingestion, standardized transformations, and business analytics into clearly defined processing layers with independent responsibilities. |
-| **Delta Lake**             | Provides ACID transactions, schema enforcement, and efficient incremental updates while simplifying data reliability.                                   |
-| **Structured Streaming**   | Processes only newly arriving transaction data, avoiding unnecessary reprocessing of historical datasets.                                               |
-| **Modular Python Design**  | Encapsulates transformation logic into reusable components that can be shared across batch and streaming implementations.                               |
-| **Unity Catalog**          | Centralizes governance, metadata management, and organization of analytical datasets.                                                                   |
-| **Databricks Jobs**        | Separates orchestration from transformation logic, enabling automated execution and simplified operational workflows.                                   |
-| **Validation Framework**   | Treats data quality as an integral part of the pipeline rather than a post-processing activity.                                                         |
-| **Analytical Gold Layer**  | Produces business-ready datasets optimized for reporting while remaining extensible for future machine learning and AI workloads.                       |
-
-These decisions emphasize long-term maintainability and reflect the architectural trade-offs commonly encountered when building production-scale data platforms.
-
-
 ## Project Metrics
 
 The following metrics summarize the overall scale and scope of the platform.
@@ -357,7 +405,7 @@ These metrics highlight both the functional capabilities of the platform and the
 
 The current implementation establishes a scalable data engineering foundation designed to support future analytical and operational capabilities with minimal architectural change.
 
-Potential enhancements include:
+The architecture intentionally supports future enhancements including:
 
 | Enhancement                   | Business Value                                                                                                                  |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -390,7 +438,7 @@ This project demonstrates that successful data platforms are defined not only by
 
 ## Dataset & Acknowledgements
 
-This project uses the **IBM Synthetic Credit Card Transactions** dataset, publicly available on Kaggle and created by **Eric Altman**. The dataset provides a large-scale synthetic representation of credit card transactions and associated reference data, making it well suited for demonstrating modern data engineering architectures and fraud analytics workflows.
+This project uses the IBM Synthetic Credit Card Transactions dataset created by Eric Altman and published on Kaggle. The availability of this dataset makes it possible to demonstrate realistic large-scale data engineering patterns using synthetic financial transaction data.
 
 **Dataset:**
 https://www.kaggle.com/datasets/ealtman2019/credit-card-transactions
@@ -420,11 +468,15 @@ Special thanks to **Eric Altman** for creating and publishing this dataset for t
 
 ## About the Author
 
-This project was designed and implemented by **Bhasker Lakshmikanth** as part of an ongoing professional portfolio focused on modern cloud-native data engineering, real-time analytics, and AI-enabled data platforms.
+## About the Author
 
-With more than two decades of software engineering experience—including technical leadership, engineering management, and hands-on platform development—my focus is on building scalable, maintainable, and production-oriented data systems that transform complex business requirements into reliable analytical solutions.
+Hi, I'm **Bhasker Lakshmikanth**.
 
-If you'd like to connect or discuss this project:
+I'm a software engineering leader and hands-on data engineer with over two decades of experience designing scalable data platforms, modernizing enterprise applications, and building cloud-native analytics solutions. My recent work has focused on Databricks, PySpark, Delta Lake, real-time data processing, and AI-enabled data platforms.
+
+This project reflects my approach to engineering: building solutions that are modular, maintainable, scalable, and grounded in sound architectural principles.
+
+Feel free to connect with me:
 
 * **GitHub:** https://github.com/bkl-data-engineering
 * **LinkedIn:** https://www.linkedin.com/in/bhasker-lakshmikanth-bl
