@@ -260,6 +260,68 @@ The project establishes a trusted analytical data platform upon which advanced c
 
 By intentionally limiting the scope to the data platform itself, the project reflects the responsibilities typically expected of Senior and Lead Data Engineers responsible for designing and operating enterprise-scale analytics pipelines.
 
+## 🤖 Agentic AI Investigation Layer
+
+In addition to the batch and streaming analytics platform, this project includes an initial **Agentic AI investigation capability** built using **LangChain** and a deterministic service-oriented architecture.
+
+Rather than allowing an LLM to directly generate SQL against analytical tables, the solution follows a **tool-based architecture** where the language model orchestrates structured investigation tools backed by reusable business services. This approach improves reliability, transparency, and maintainability while ensuring all analytical queries are executed through validated service-layer logic.
+
+### Architecture
+
+```
+Natural Language Question
+           │
+           ▼
+ LangChain Investigation Agent
+           │
+           ▼
+ Structured Investigation Tools
+           │
+           ▼
+ MerchantService
+           │
+           ▼
+ SparkService
+           │
+           ▼
+ Databricks Gold Delta Tables
+```
+
+### Current Investigation Capabilities
+
+- Merchant Risk Profile
+- Fraud Pattern Breakdown
+- Peer Merchant Comparison
+- High-Risk Transaction Investigation
+
+### Engineering Highlights
+
+- Deterministic SQL execution through reusable service classes
+- Strongly typed request and response models using Pydantic
+- Separation of AI orchestration from business logic and data access
+- Grounded analytical responses generated from trusted Gold-layer datasets
+- Modular architecture designed for future expansion with additional investigation tools
+
+### Technology Stack
+
+- LangChain
+- Databricks SQL
+- PySpark
+- Pydantic
+- Delta Lake
+- Unity Catalog
+
+### Future Enhancements
+
+The current implementation establishes the foundation for a broader AI-assisted fraud investigation platform. Planned enhancements include:
+
+- LangGraph multi-step investigation workflows
+- Multi-agent collaboration for complex fraud investigations
+- LangSmith tracing and evaluation
+- REST API for investigation services
+- Interactive investigation dashboard
+- Additional fraud investigation tools and explainability capabilities
+
 ## Technology Stack
 
 The platform leverages a modern cloud-native data engineering stack designed to support scalable batch processing, real-time streaming, governed data management, and production-oriented pipeline orchestration.
