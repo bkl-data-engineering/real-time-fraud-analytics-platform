@@ -262,7 +262,7 @@ By intentionally limiting the scope to the data platform itself, the project ref
 
 ## 🤖 Agentic AI Investigation Layer
 
-In addition to the batch and streaming analytics platform, this project includes an initial **Agentic AI investigation capability** built using **LangChain** and a deterministic service-oriented architecture.
+Building on the Databricks analytics platform, the project has been extended with an initial **Agentic AI investigation layer** that enables natural language fraud investigations over trusted Gold-layer datasets.
 
 Rather than allowing an LLM to directly generate SQL against analytical tables, the solution follows a **tool-based architecture** where the language model orchestrates structured investigation tools backed by reusable business services. This approach improves reliability, transparency, and maintainability while ensuring all analytical queries are executed through validated service-layer logic.
 
